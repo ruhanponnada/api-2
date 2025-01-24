@@ -1,0 +1,42 @@
+name: Sync OpenAPI Specs to Parent Repo
+
+on:
+  push:
+    branches:
+      - main  # Trigger on pushes to the main branch
+
+jobs:
+  sync-openapi-specs:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the child repo
+      - name: Checkout Child Repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Step 2: Clone the parent repo
+      - name: Clone Parent Repo
+        env:
+          REPO_TOKEN: ${{ secrets.PARENT_REPO_TOKEN }}
+        run: |
+          git clone https://x-access-token:${REPO_TOKEN}@github.com/ruhanponnada/autodesk.git parent_repo
+      # Step 3: Ensure the `api-reference/api-2` folder exists
+      - name: Create api-2 Folder if Missing
+        run: |
+          mkdir -p parent_repo/api-reference/api-2
+          echo "Ensured that the 'api-reference/api-2' folder exists."
+      # Step 4: Sync only the OpenAPI spec
+      - name: Sync OpenAPI Spec to Parent Repo
+        run: |
+          rsync -avz --delete ./* parent_repo/api-reference/api-2
+      # Step 5: Commit and push changes to the parent repo
+      - name: Commit Changes to Parent Repo
+        run: |
+          cd parent_repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Sync OpenAPI spec from child repo: $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git push
